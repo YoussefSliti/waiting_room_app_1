@@ -1,9 +1,15 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
-import 'package:waiting_room_app_1/waiting_room_manager.dart';
+import 'package:provider/provider.dart';
+import 'package:waiting_room_app_1/queue_provider.dart';
 
 void main() {
-  runApp(const WaitingRoomApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => QueueProvider(),
+      child: const WaitingRoomApp(),
+    ),
+  );
 }
 
 class WaitingRoomApp extends StatelessWidget {
@@ -14,32 +20,28 @@ class WaitingRoomApp extends StatelessWidget {
   }
 }
 
-class WaitingRoomScreen extends StatefulWidget {
+class WaitingRoomScreen extends StatelessWidget {
   const WaitingRoomScreen({super.key});
   @override
-  State<WaitingRoomScreen> createState() => _WaitingRoomScreenState();
-}
-
-// The private _WaitingRoomScreenState class manages the widget's state.
-class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
-  // Our logic manager is now part of the UI state.
-  final WaitingRoomManager _manager = WaitingRoomManager();
-  // This controller manages the text input field's value.
-  final TextEditingController _controller = TextEditingController();
-  void _addClient() {
-    if (_controller.text.isNotEmpty) {
-      // We wrap the state change in setState() to tell Flutter to rebuild the UI.
-      setState(() {
-        _manager.addClient(_controller.text);
-        _controller.clear();
-      });
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
+    // Use context.watch() to listen for state changes.
+    final queueProvider = context.watch<QueueProvider>();
+    final TextEditingController _controller = TextEditingController();
     return Scaffold(
-      appBar: AppBar(title: const Text('Local Waiting Room')),
+      appBar: AppBar(
+        title: const Text('Local Waiting Room'),
+        actions: [
+          IconButton(
+            key: const Key('nextClientButton'),
+            icon: const Icon(Icons.skip_next),
+            onPressed: () {
+              // Use context.read() to call a method without listening for changes.
+              context.read<QueueProvider>().nextClient();
+            },
+            tooltip: 'Next Client',
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -53,26 +55,33 @@ class _WaitingRoomScreenState extends State<WaitingRoomScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                ElevatedButton(onPressed: _addClient, child: const Text('Add')),
+                ElevatedButton(
+                  onPressed: () {
+                    if (_controller.text.isNotEmpty) {
+                      context.read<QueueProvider>().addClient(_controller.text);
+                      _controller.clear();
+                    }
+                  },
+                  child: const Text('Add'),
+                ),
               ],
             ),
             const SizedBox(height: 16),
-            // The Text widget dynamically shows the queue length.
-            Text('Clients in Queue: ${_manager.clients.length}'),
+            Text('Clients in Queue: ${queueProvider.clients.length}'),
             Expanded(
               child: ListView.builder(
-                itemCount: _manager.clients.length,
+                itemCount: queueProvider.clients.length,
                 itemBuilder: (context, index) {
-                  final clientName = _manager.clients[index];
+                  final clientName = queueProvider.clients[index];
                   return Card(
                     child: ListTile(
                       title: Text(clientName),
                       trailing: IconButton(
                         icon: const Icon(Icons.delete),
                         onPressed: () {
-                          setState(() {
-                            _manager.removeClient(clientName);
-                          });
+                          context.read<QueueProvider>().removeClient(
+                            clientName,
+                          );
                         },
                       ),
                     ),
